@@ -20,8 +20,6 @@ import com.ironsource.mediationsdk.integration.IntegrationHelper
 import com.ironsource.mediationsdk.logger.IronSourceError
 import com.ironsource.mediationsdk.model.Placement
 import com.ironsource.mediationsdk.sdk.*
-import io.flutter.embedding.android.FlutterActivity
-import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
@@ -51,13 +49,32 @@ class IronSourceMediationPlugin : FlutterPlugin, MethodCallHandler, ActivityAwar
   private lateinit var mInitializationListener: InitializationListener
 
   override fun onAttachedToEngine(@NonNull flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
-    channel = MethodChannel(flutterPluginBinding.binaryMessenger, "ironsource_mediation")
-    channel.setMethodCallHandler(this)
-    setListeners()
+    if (!isPluginAttached) {
+      isPluginAttached = true
+      channel = MethodChannel(flutterPluginBinding.binaryMessenger, "ironsource_mediation")
+      channel.setMethodCallHandler(this)
+      setListeners()
+    }
   }
 
   override fun onDetachedFromEngine(@NonNull binding: FlutterPlugin.FlutterPluginBinding) {
+    isPluginAttached = false
     channel.setMethodCallHandler(null)
+    detachListeners()
+  }
+
+  private fun detachListeners() {
+    // RewardedVideo
+    IronSource.setRewardedVideoListener(null)
+    // Interstitial
+    IronSource.setInterstitialListener(null)
+    // OfferWall
+    IronSource.setOfferwallListener(null)
+    // Banner
+    mBanner?.bannerListener = null
+    mBannerListener = null
+    // Init
+    mInitializationListener = null
   }
 
   override fun onMethodCall(@NonNull call: MethodCall, @NonNull result: Result) {
@@ -752,7 +769,7 @@ class IronSourceMediationPlugin : FlutterPlugin, MethodCallHandler, ActivityAwar
     activity?.runOnUiThread {
       channel.invokeMethod(methodName, args, object : Result {
         override fun success(result: Any?) {}
-        override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {
+        override fun error(errorCode: String?, errorMessage: String?, errorDetails: Any?) {
           Log.e(TAG, "Error: invokeMethod $methodName failed "
               + "errorCode: $errorCode, message: $errorMessage, details: $errorDetails")
         }
@@ -801,6 +818,7 @@ class IronSourceMediationPlugin : FlutterPlugin, MethodCallHandler, ActivityAwar
 
   companion object {
     val TAG = IronSourceMediationPlugin::class.java.simpleName
+    var isPluginAttached: Boolean=false
   }
 
   enum class BannerPosition(val value: Int) {
